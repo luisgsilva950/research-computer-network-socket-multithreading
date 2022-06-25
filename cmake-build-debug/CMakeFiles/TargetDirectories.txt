@@ -1,0 +1,5 @@
+/Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading/cmake-build-debug/CMakeFiles/computer_network.dir
+/Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading/cmake-build-debug/CMakeFiles/server.c.dir
+/Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading/cmake-build-debug/CMakeFiles/client.c.dir
+/Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading/cmake-build-debug/CMakeFiles/rebuild_cache.dir
