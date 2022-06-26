@@ -47,6 +47,7 @@ struct order_context {
 };
 
 struct storage_client {
+    int socket;
     char *ip;
     int id;
 };
@@ -104,6 +105,18 @@ int parse_client_address(const char *raw_address, const char *raw_port, struct s
     return FALSE;
 }
 
+int parse_broadcast_address(const char *raw_port, struct sockaddr_storage *storage) {
+    int PORT_NUMBER = atoi(raw_port);
+    if (PORT_NUMBER == 0) return FALSE;
+    PORT_NUMBER = htons(PORT_NUMBER);
+    struct sockaddr_in *ipv4_socket = (struct sockaddr_in *) storage;
+    bzero(&(ipv4_socket->sin_zero), 8);
+    ipv4_socket->sin_port = PORT_NUMBER;
+    ipv4_socket->sin_family = AF_INET;
+    ipv4_socket->sin_addr.s_addr = htonl(INADDR_BROADCAST);        /* send to all */
+    return sizeof(struct sockaddr_in);
+}
+
 
 int parse_server_address(const char *protocol, const char *raw_port, struct sockaddr_storage *storage) {
     uint16_t port = (uint16_t) atoi(raw_port);
@@ -131,6 +144,21 @@ struct socket_context initialize_client_socket(char *address, char *port) {
     int protocol_struct_length = parse_client_address(address, port, &storage);
     if (protocol_struct_length == FALSE) print_client_usage_pattern();
     int _socket = socket(storage.ss_family, SOCK_STREAM, 0);
+    if (_socket < FALSE) error("Error opening socket...");
+    struct sockaddr *socket_address = (struct sockaddr *) &storage;
+    int connection_status_code = connect(_socket, socket_address, protocol_struct_length);
+    if (connection_status_code < FALSE) error("Error connecting...");
+    struct socket_context context;
+    context.socket_address = *socket_address;
+    context.socket = _socket;
+    return context;
+}
+
+struct socket_context initialize_broadcast_socket(char *port) {
+    struct sockaddr_storage storage;
+    int protocol_struct_length = parse_broadcast_address(port, &storage);
+    if (protocol_struct_length == FALSE) print_client_usage_pattern();
+    int _socket = socket(storage.ss_family, SOCK_DGRAM, 0);
     if (_socket < FALSE) error("Error opening socket...");
     struct sockaddr *socket_address = (struct sockaddr *) &storage;
     int connection_status_code = connect(_socket, socket_address, protocol_struct_length);
@@ -534,21 +562,34 @@ enum Boolean did_communication_fail(int client_socket) {
 }
 
 
-enum Boolean insert_new_equipment(char *ip, int next_id) {
+enum Boolean insert_new_equipment(int client_socket, char *ip, int next_id) {
     int counter = 0;
     for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
         if (clients[counter].id == 0) {
             clients[counter].id = next_id;
             clients[counter].ip = ip;
+            clients[counter].socket = client_socket;
             return TRUE;
         }
     }
     return FALSE;
 }
 
+void remove_equipment(const int id) {
+    int counter = 0;
+    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
+        if (clients[counter].id == id) {
+            NEXT_ID = clients[counter].id;
+            clients[counter].socket = -1;
+            clients[counter].id = 0;
+            clients[counter].ip = "";
+        }
+    }
+}
+
 void handle_add_new_equipment(char *ip, int client_socket) {
     int next_id = get_next_id();
-    enum Boolean is_success_inserted = insert_new_equipment(ip, next_id);
+    enum Boolean is_success_inserted = insert_new_equipment(client_socket, ip, next_id);
     char response[BUFFER_SIZE_IN_BYTES] = {};
     if (is_success_inserted) {
         NEXT_ID++;
@@ -560,11 +601,93 @@ void handle_add_new_equipment(char *ip, int client_socket) {
     close(client_socket);
 }
 
+void handle_remove_equipment(int id, int client_socket) {
+    remove_equipment(id);
+    char response[BUFFER_SIZE_IN_BYTES] = {};
+    sprintf(response, "Successful removal\n");
+    send(client_socket, response, strlen(response) + 1, 0);
+    close(client_socket);
+}
+
+int *get_equipments_excluding_current(int id) {
+    int *equipments = NULL;
+    int count = 0, i = 0;
+    for (i = 0; i < MAX_EQUIPMENTS_SIZE; i++) {
+        if (clients[i].id != 0 && clients[i].id != id) {
+            equipments = realloc(equipments, (count + 1) * sizeof(int));
+            equipments[count] = clients[i].id;
+            count++;
+        }
+    }
+    return equipments;
+}
+
+void print_int_values(int *values) {
+    int counter;
+    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
+        if (values[counter]) {
+            printf("Value: %d\n", values[counter]);
+        }
+    }
+}
+
+void handle_list_equipments(int id, int client_socket) {
+    int counter = 0;
+    char message[BUFFER_SIZE_IN_BYTES] = "";
+    int *equipment_ids = get_equipments_excluding_current(id);
+    print_int_values(equipment_ids);
+    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
+        if (equipment_ids[counter]) {
+            char aux[BUFFER_SIZE_IN_BYTES] = "";
+            sprintf(aux, "%d ", equipment_ids[counter]);
+            strcat(message, aux);
+        }
+    }
+    strcat(message, "\n");
+    printf("Listing equipments: %s", message);
+    send(client_socket, message, strlen(message) + 1, 0);
+    close(client_socket);
+}
+
 int get_command_type(char buffer[]) {
     char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
     strcpy(buffer_copy, buffer);
-    printf("Buffer: %s\n", buffer_copy);
+    printf("Buffer: %s", buffer_copy);
     strtok(buffer_copy, " ");
     printf("Command found: %s\n", buffer_copy);
     return atoi(buffer_copy);
+}
+
+int get_inserted_id(char buffer[]) {
+    char *value;
+    char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
+    strcpy(buffer_copy, buffer);
+    printf("Buffer: %s", buffer_copy);
+    value = strtok(buffer_copy, " ");
+    value = strtok(NULL, " ");
+    value = strtok(NULL, " ");
+    printf("Command Inserted ID: %s\n", value);
+    return atoi(value);
+}
+
+int get_remove_id_from_remove_request(char buffer[]) {
+    char *value;
+    char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
+    strcpy(buffer_copy, buffer);
+    printf("Buffer: %s", buffer_copy);
+    value = strtok(buffer_copy, " ");
+    value = strtok(NULL, " ");
+    printf("Will remove ID: %s\n", value);
+    return atoi(value);
+}
+
+int get_id_from_socket(int socket) {
+    int counter = 0;
+    int response = -1;
+    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
+        if (clients[counter].socket == socket) {
+            response = clients[counter].id;
+        }
+    }
+    return response;
 }
