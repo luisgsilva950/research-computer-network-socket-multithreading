@@ -81,6 +81,16 @@ void print_client_usage_pattern() {
     exit(EXIT_FAILURE);
 }
 
+char *get_id_as_string(int id) {
+    char *aux = malloc(8 * (sizeof(char)));
+    if (id >= 10) {
+        sprintf(aux, "%d", id);
+    } else {
+        sprintf(aux, "0%d", id);
+    }
+    return aux;
+}
+
 int parse_client_address(const char *raw_address, const char *raw_port, struct sockaddr_storage *storage) {
     if (raw_address == NULL) return FALSE;
     int PORT_NUMBER = atoi(raw_port);
@@ -342,6 +352,10 @@ char *get_remove_success_response(int *sensors_removed, int *sensors_not_present
     return response;
 }
 
+float generate_random_number() {
+    return (((float) rand() / (float) (RAND_MAX)) * 100);
+}
+
 char *get_read_response(int *installed_sensors, int *not_installed_sensors) {
     static char response[BUFFER_SIZE_IN_BYTES] = "";
     static char installed_sensor_message[BUFFER_SIZE_IN_BYTES] = "";
@@ -357,7 +371,7 @@ char *get_read_response(int *installed_sensors, int *not_installed_sensors) {
         for (sensor = installed_sensors; (int) *sensor != '\0'; sensor++) {
             has_sensors_installed = TRUE;
             char sensor_as_string[7] = "";
-            sprintf(sensor_as_string, "%.2f ", (((float) rand() / (float) (RAND_MAX)) * 10));
+            sprintf(sensor_as_string, "%.2f ", generate_random_number());
             strcat(installed_sensor_message, sensor_as_string);
         }
     }
@@ -385,176 +399,6 @@ char *get_read_response(int *installed_sensors, int *not_installed_sensors) {
     }
     strcat(response, "\n");
     return response;
-}
-
-char *get_list_success_response(int *sensors_in_equipment) {
-    if (sensors_in_equipment == NULL) return "";
-    static char response[BUFFER_SIZE_IN_BYTES] = "";
-    memset(response, 0, BUFFER_SIZE_IN_BYTES);
-    int *sensor;
-    for (sensor = sensors_in_equipment; (int) *sensor != '\0'; sensor++) {
-        char sensor_as_string[4] = "  ";
-        sprintf(sensor_as_string, "0%d ", (int) *sensor);
-        strcat(response, sensor_as_string);
-    }
-    strcat(response, "\n");
-    return response;
-}
-
-enum Boolean is_sensor_present_on_equipment(struct order_context *equipments, int sensor_id, int equipment_id) {
-    int *sensors_by_equipment = get_sensors_by_equipment(equipments, equipment_id);
-    if (sensors_by_equipment == NULL) return FALSE;
-    int *sensor;
-    for (sensor = sensors_by_equipment; (int) *sensor != '\0'; sensor++) {
-        if ((int) *sensor == sensor_id) return TRUE;
-    }
-    return FALSE;
-}
-
-enum Boolean is_invalid_sensors(int *sensors) {
-    int *sensor;
-    for (sensor = sensors; (int) *sensor != '\0'; sensor++) {
-        if ((int) *sensor < 1 || (int) *sensor > 4) return TRUE;
-    }
-    return FALSE;
-}
-
-void remove_sensor_from_equipment(struct order_context *equipments, int sensor_id, int equipment_id) {
-    int i = 0;
-    for (i = 0; i < MAX_EQUIPMENTS_SIZE; i++) {
-        struct order_context context = equipments[i];
-        if (context.sensor_id == sensor_id && context.equipment_id == equipment_id) {
-            context.sensor_id = NOT_FOUND;
-            context.equipment_id = NOT_FOUND;
-            equipments[i] = context;
-        }
-    }
-}
-
-void handle_add_message(struct sockaddr *client_socket_address, int client_socket, struct order_context *equipments,
-                        int *sensor_ids, int equipment_id) {
-    int *sensor_id;
-    int *sensors_added = malloc(sizeof(int));
-    int *sensors_already_present = malloc(sizeof(int));
-    int sensors_added_count = 0;
-    int sensors_already_present_count = 0;
-    int total_equipments_inserted = get_equipments_count(equipments);
-    char *response;
-    if (total_equipments_inserted < MAX_EQUIPMENTS_SIZE) {
-        for (sensor_id = sensor_ids; *sensor_id != '\0'; sensor_id++) {
-            if (is_sensor_present_on_equipment(equipments, (int) *sensor_id, equipment_id)) {
-                sensors_already_present[sensors_already_present_count] = (int) *sensor_id;
-                sensors_already_present = realloc(sensors_already_present,
-                                                  (sensors_already_present_count + 1) * sizeof(int));
-                sensors_already_present_count = sensors_already_present_count + 1;
-            } else {
-                sensors_added[sensors_added_count] = (int) *sensor_id;
-                sensors_added = realloc(sensors_added, (sensors_added_count + 1) * sizeof(int));
-                sensors_added_count = sensors_added_count + 1;
-                struct order_context order;
-                order.equipment_id = equipment_id;
-                order.sensor_id = (int) *sensor_id;
-                equipments[SERVER_EQUIPMENTS_COUNT] = order;
-                SERVER_EQUIPMENTS_COUNT = SERVER_EQUIPMENTS_COUNT + 1;
-            }
-        }
-        response = get_add_success_response(sensors_added, sensors_already_present, equipment_id);
-    } else {
-        response = "limit exceeded\n";
-    }
-    const char *client_socket_ip = inet_ntoa(((struct sockaddr_in *) &client_socket_address)->sin_addr);
-    int count = send(client_socket, response, strlen(response) + 1, 0);
-    printf("Message send for %s: %d bytes: %s", client_socket_ip, (int) count, response);
-    if (count != strlen(response) + 1) error("Error sending response message...");
-    close(client_socket);
-}
-
-void handle_remove_message(struct sockaddr *client_socket_address, int client_socket, struct order_context *equipments,
-                           int *sensor_ids, int equipment_id) {
-    int *sensor_id;
-    int *sensors_removed = malloc(sizeof(int));
-    int *sensors_not_present = malloc(sizeof(int));
-    int sensors_removed_count = 0;
-    int sensors_not_present_count = 0;
-    for (sensor_id = sensor_ids; *sensor_id != '\0'; sensor_id++) {
-        if (!is_sensor_present_on_equipment(equipments, (int) *sensor_id, equipment_id)) {
-            sensors_not_present[sensors_not_present_count] = (int) *sensor_id;
-            sensors_not_present = realloc(sensors_not_present, (sensors_not_present_count + 1) * sizeof(int));
-            sensors_not_present_count = sensors_not_present_count + 1;
-        } else {
-            sensors_removed[sensors_removed_count] = (int) *sensor_id;
-            sensors_removed = realloc(sensors_removed, (sensors_removed_count + 1) * sizeof(int));
-            sensors_removed_count = sensors_removed_count + 1;
-            remove_sensor_from_equipment(equipments, (int) *sensor_id, equipment_id);
-            SERVER_EQUIPMENTS_COUNT = SERVER_EQUIPMENTS_COUNT - 1;
-        }
-    }
-    char *response = get_remove_success_response(sensors_removed, sensors_not_present, equipment_id);
-    const char *client_socket_ip = inet_ntoa(((struct sockaddr_in *) &client_socket_address)->sin_addr);
-    int count = send(client_socket, response, strlen(response) + 1, 0);
-    printf("Message send for %s: %d bytes: %s", client_socket_ip, (int) count, response);
-    if (count != strlen(response) + 1) error("Error sending response message...");
-    close(client_socket);
-}
-
-void handle_list_message(struct sockaddr *client_socket_address, int client_socket, struct order_context *equipments,
-                         int equipment_id) {
-    int *sensor_ids = get_sensors_by_equipment(equipments, equipment_id);
-    char *response;
-    if (sensor_ids == NULL) {
-        response = "none";
-    } else {
-        response = get_list_success_response(sensor_ids);
-    }
-    const char *client_socket_ip = inet_ntoa(((struct sockaddr_in *) &client_socket_address)->sin_addr);
-    int count = send(client_socket, response, strlen(response) + 1, 0);
-    printf("Message send for %s: %d bytes: %s", client_socket_ip, (int) count, response);
-    if (count != strlen(response) + 1) error("Error sending response message...");
-    close(client_socket);
-}
-
-void handle_read_message(struct sockaddr *client_socket_address, int client_socket, struct order_context *equipments,
-                         int *sensor_ids, int equipment_id) {
-    int *sensor_id;
-    int *installed_sensors = malloc(sizeof(int));
-    int installed_sensors_count = 0;
-    int *not_installed_sensors = malloc(sizeof(int));
-    int not_installed_sensors_count = 0;
-    for (sensor_id = sensor_ids; *sensor_id != '\0'; sensor_id++) {
-        if (!is_sensor_present_on_equipment(equipments, (int) *sensor_id, equipment_id)) {
-            not_installed_sensors = realloc(not_installed_sensors, (not_installed_sensors_count + 1) * sizeof(int));
-            not_installed_sensors[not_installed_sensors_count] = (int) *sensor_id;
-            not_installed_sensors_count = not_installed_sensors_count + 1;
-        } else {
-            installed_sensors = realloc(installed_sensors, (installed_sensors_count + 1) * sizeof(int));
-            installed_sensors[installed_sensors_count] = (int) *sensor_id;
-            installed_sensors_count = installed_sensors_count + 1;
-        }
-    }
-    const char *response = get_read_response(installed_sensors, not_installed_sensors);
-    const char *client_socket_ip = inet_ntoa(((struct sockaddr_in *) &client_socket_address)->sin_addr);
-    int count = send(client_socket, response, strlen(response) + 1, 0);
-    printf("Message send for %s: %d bytes: %s", client_socket_ip, (int) count, response);
-    if (count != strlen(response) + 1) error("Error sending response message...");
-    close(client_socket);
-}
-
-void handle_invalid_equipment_message(struct sockaddr *client_socket_address, int client_socket) {
-    const char *response = "invalid equipment\n";
-    const char *client_socket_ip = inet_ntoa(((struct sockaddr_in *) &client_socket_address)->sin_addr);
-    int count = send(client_socket, response, strlen(response) + 1, 0);
-    printf("Message send for %s: %d bytes: %s", client_socket_ip, (int) count, response);
-    if (count != strlen(response) + 1) error("Error sending response message...");
-    close(client_socket);
-}
-
-void handle_invalid_sensors_message(struct sockaddr *client_socket_address, int client_socket) {
-    const char *response = "invalid sensor\n";
-    const char *client_socket_ip = inet_ntoa(((struct sockaddr_in *) &client_socket_address)->sin_addr);
-    int count = send(client_socket, response, strlen(response) + 1, 0);
-    printf("Message send for %s: %d bytes: %s", client_socket_ip, (int) count, response);
-    if (count != strlen(response) + 1) error("Error sending response message...");
-    close(client_socket);
 }
 
 enum Boolean did_communication_fail(int client_socket) {
@@ -593,7 +437,7 @@ void handle_add_new_equipment(char *ip, int client_socket) {
     char response[BUFFER_SIZE_IN_BYTES] = {};
     if (is_success_inserted) {
         NEXT_ID++;
-        sprintf(response, "New ID: %d\n", next_id);
+        sprintf(response, "New ID: %s\n", get_id_as_string(next_id));
     } else {
         sprintf(response, "Equipments size exceeded!\n");
     }
@@ -633,15 +477,14 @@ void print_int_values(int *values) {
 
 void handle_list_equipments(int id, int client_socket) {
     int counter = 0;
-    char message[BUFFER_SIZE_IN_BYTES] = "";
+    char message[BUFFER_SIZE_IN_BYTES] = {};
     int *equipment_ids = get_equipments_excluding_current(id);
     print_int_values(equipment_ids);
     for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
-        if (equipment_ids[counter]) {
-            char aux[BUFFER_SIZE_IN_BYTES] = "";
-            sprintf(aux, "%d ", equipment_ids[counter]);
-            strcat(message, aux);
-        }
+        if (equipment_ids[counter] == 0) break;
+        char aux[12] = {};
+        sprintf(aux, "%s ", get_id_as_string(equipment_ids[counter]));
+        strcat(message, aux);
     }
     strcat(message, "\n");
     printf("Listing equipments: %s", message);
@@ -649,13 +492,19 @@ void handle_list_equipments(int id, int client_socket) {
     close(client_socket);
 }
 
-int get_command_type(char buffer[]) {
-    char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
+
+char *get_first_word(char buffer[]) {
+    char *buffer_copy = malloc(BUFFER_SIZE_IN_BYTES);
     strcpy(buffer_copy, buffer);
     printf("Buffer: %s", buffer_copy);
     strtok(buffer_copy, " ");
-    printf("Command found: %s\n", buffer_copy);
-    return atoi(buffer_copy);
+    printf("First word is: %s\n", buffer_copy);
+    return buffer_copy;
+}
+
+int get_command_type(char buffer[]) {
+    char *first_word = get_first_word(buffer);
+    return atoi(first_word);
 }
 
 int get_inserted_id(char buffer[]) {
@@ -666,7 +515,7 @@ int get_inserted_id(char buffer[]) {
     value = strtok(buffer_copy, " ");
     value = strtok(NULL, " ");
     value = strtok(NULL, " ");
-    printf("Command Inserted ID: %s\n", value);
+    printf("Generated Id: %s\n", value);
     return atoi(value);
 }
 
@@ -677,9 +526,47 @@ int get_remove_id_from_remove_request(char buffer[]) {
     printf("Buffer: %s", buffer_copy);
     value = strtok(buffer_copy, " ");
     value = strtok(NULL, " ");
-    printf("Will remove ID: %s\n", value);
+    printf("Will remove Id: %s\n", value);
     return atoi(value);
 }
+
+int get_information_id_from_list_information_server_message(char buffer[]) {
+    char *value;
+    char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
+    strcpy(buffer_copy, buffer);
+    printf("Buffer: %s", buffer_copy);
+    value = strtok(buffer_copy, " ");
+    value = strtok(NULL, " ");
+    value = strtok(NULL, " ");
+    printf("Will remove Id: %s\n", value);
+    return atoi(value);
+}
+
+
+int get_id_from_list_information_client_message(char buffer[]) {
+    char *value;
+    char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
+    strcpy(buffer_copy, buffer);
+    printf("Buffer: %s", buffer_copy);
+    value = strtok(buffer_copy, " ");
+    value = strtok(NULL, " ");
+    value = strtok(NULL, " ");
+    value = strtok(NULL, " ");
+    printf("Will list information from Id: %s\n", value);
+    return atoi(value);
+}
+
+struct storage_client get_client_from_id(int id) {
+    int counter = 0;
+    struct storage_client response;
+    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
+        if (clients[counter].id == id) {
+            response = clients[id];
+        }
+    }
+    return response;
+}
+
 
 int get_id_from_socket(int socket) {
     int counter = 0;
@@ -690,4 +577,13 @@ int get_id_from_socket(int socket) {
         }
     }
     return response;
+}
+
+void handle_request_information(int id, int target_id, int client_socket) {
+    char message[BUFFER_SIZE_IN_BYTES] = "";
+    float random_value = generate_random_number();
+    printf("Equipment %s will list information of equipment %s\n", get_id_as_string(id), get_id_as_string(target_id));
+    sprintf(message, "Value from %s: %.2f", get_id_as_string(target_id), random_value);
+    send(client_socket, message, strlen(message) + 1, 0);
+    close(client_socket);
 }

@@ -17,26 +17,32 @@ void *start_client_thread(void *data) {
     char buffer[BUFFER_SIZE_IN_BYTES] = {};
     memset(buffer, 0, BUFFER_SIZE_IN_BYTES);
     ssize_t count = recv(th_data->client_socket, buffer, BUFFER_SIZE_IN_BYTES - 1, 0);
-    if (count == 0) close(th_data->client_socket);
-    printf("Message received from %s: %d bytes: %s", client_ip, (int) count, buffer);
-    char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
-    strcpy(buffer_copy, buffer);
-    int command = get_command_type(buffer_copy);
-    if (command == ADD_EQUIPMENT_REQUEST) handle_add_new_equipment(client_ip, th_data->client_socket);
-    if (command == REMOVE_EQUIPMENT_REQUEST) {
-        int equipment_id = get_remove_id_from_remove_request(buffer_copy);
-        handle_remove_equipment(equipment_id, th_data->client_socket);
-    }
-    if (command == LIST_EQUIPMENTS_REQUEST) {
-        int id = get_id_from_socket(th_data->client_socket);
-        printf("Id from equipment request: %d\n", id);
-        handle_list_equipments(id, th_data->client_socket);
-    }
+    if ((int) count == 0) { close(th_data->client_socket); }
     else {
-        char response[BUFFER_SIZE_IN_BYTES] = {};
-        sprintf(response, "Command is %d\n", command);
-        send(th_data->client_socket, response, strlen(response) + 1, 0);
-        close(th_data->client_socket);
+        printf("Message received from %s: %d bytes: %s", client_ip, (int) count, buffer);
+        char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
+        strcpy(buffer_copy, buffer);
+        int command = get_command_type(buffer_copy);
+        if (command == ADD_EQUIPMENT_REQUEST) handle_add_new_equipment(client_ip, th_data->client_socket);
+        if (command == REMOVE_EQUIPMENT_REQUEST) {
+            int equipment_id = get_remove_id_from_remove_request(buffer_copy);
+            handle_remove_equipment(equipment_id, th_data->client_socket);
+        }
+        if (command == LIST_EQUIPMENTS_REQUEST) {
+            int id = get_id_from_socket(th_data->client_socket);
+            printf("Id from equipment request: %s\n", get_id_as_string(id));
+            handle_list_equipments(id, th_data->client_socket);
+        }
+        if (command == GET_EQUIPMENT_INFORMATION_REQUEST) {
+            int id = get_id_from_socket(th_data->client_socket);
+            int target_id = get_information_id_from_list_information_server_message(buffer_copy);
+            handle_request_information(id, target_id, th_data->client_socket);
+        } else {
+            char response[BUFFER_SIZE_IN_BYTES] = {};
+            sprintf(response, "Command is %d\n", command);
+            send(th_data->client_socket, response, strlen(response) + 1, 0);
+            close(th_data->client_socket);
+        }
     }
     pthread_exit(0);
 }

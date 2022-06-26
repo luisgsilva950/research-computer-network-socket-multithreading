@@ -12,7 +12,7 @@ char *send_message(int _socket, char message[]) {
     printf("Sending message: %d bytes: %s", message_size, message);
     const int count = send(_socket, message, (ssize_t) message_size, 0);
     if (count != message_size) error("Error sending message");
-    char r[BUFFER_SIZE_IN_BYTES];
+    char *r = malloc(BUFFER_SIZE_IN_BYTES);
     memset(r, 0, BUFFER_SIZE_IN_BYTES);
     unsigned total_bytes_received = 0;
     while (1) {
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         if (strlen(message) > 0) {
             if (is_equal(message, "close connection\n")) {
                 printf("Will close client connection with: %s\n", ip);
-                sprintf(mapped_message, "02 %d\n", MY_ID);
+                sprintf(mapped_message, "02 %s\n", get_id_as_string(MY_ID));
                 send_message(_socket, mapped_message);
 //                struct socket_context broadcast_context = initialize_broadcast_socket(argv[2]);
 //                send_message(broadcast_context.socket, );
@@ -56,6 +56,11 @@ int main(int argc, char *argv[]) {
 //                struct socket_context broadcast_context = initialize_broadcast_socket(argv[2]);
 //                send_message(broadcast_context.socket, );
 
+            } else if (is_equal(get_first_word(message), "request")) {
+                int id = get_id_from_list_information_client_message(message);
+                printf("Will list information from: %s\n", get_id_as_string(id));
+                sprintf(mapped_message, "05 %s %s\n", get_id_as_string(MY_ID), get_id_as_string(id));
+                send_message(_socket, mapped_message);
             } else {
                 send_message(_socket, message);
             }
