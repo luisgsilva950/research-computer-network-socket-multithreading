@@ -9,21 +9,35 @@ struct thread_data {
     struct sockaddr client_socket_address;
 };
 
+struct storage_client *initialize_empty_storage() {
+    int counter = 0;
+    static struct storage_client equipments[MAX_EQUIPMENTS_SIZE] = {};
+    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
+        equipments[counter].ip = "";
+        equipments[counter].id = 0;
+    }
+    return equipments;
+}
+
+
 void *start_client_thread(void *data) {
     const struct thread_data *th_data = ((struct thread_data *) data);
-    const char *client_socket_ip = inet_ntoa(((struct sockaddr_in *) &th_data->client_socket_address)->sin_addr);
-    printf("Connection from: %s established!\n", client_socket_ip);
+    char *client_ip = inet_ntoa(((struct sockaddr_in *) &th_data->client_socket_address)->sin_addr);
+    printf("Connection from: %s established!\n", client_ip);
     char buffer[BUFFER_SIZE_IN_BYTES] = {};
     memset(buffer, 0, BUFFER_SIZE_IN_BYTES);
     ssize_t count = recv(th_data->client_socket, buffer, BUFFER_SIZE_IN_BYTES - 1, 0);
-    printf("Message received from %s: %d bytes: %s", client_socket_ip, (int) count, buffer);
+    printf("Message received from %s: %d bytes: %s", client_ip, (int) count, buffer);
     char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
     strcpy(buffer_copy, buffer);
     int command = get_command_type(buffer_copy);
-    char response[BUFFER_SIZE_IN_BYTES] = {};
-    sprintf(response, "Command is %d\n", command);
-    send(th_data->client_socket, response, strlen(response) + 1, 0);
-    close(th_data->client_socket);
+    if (command == ADD_EQUIPMENT_REQUEST) handle_add_new_equipment(client_ip, th_data->client_socket);
+    else {
+        char response[BUFFER_SIZE_IN_BYTES] = {};
+        sprintf(response, "Command is %d\n", command);
+        send(th_data->client_socket, response, strlen(response) + 1, 0);
+        close(th_data->client_socket);
+    }
     pthread_exit(0);
 }
 

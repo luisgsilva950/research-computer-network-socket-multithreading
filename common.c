@@ -39,11 +39,20 @@ enum MessageType {
 };
 
 static int SERVER_EQUIPMENTS_COUNT = 0;
+static int NEXT_ID = 1;
 
 struct order_context {
     int equipment_id;
     int sensor_id;
 };
+
+struct storage_client {
+    char *ip;
+    int id;
+};
+
+static struct storage_client clients[MAX_EQUIPMENTS_SIZE] = {};
+
 
 struct socket_context {
     struct sockaddr socket_address;
@@ -186,16 +195,6 @@ int get_equipment_id_from_message(char *message) {
     return equipment_id;
 }
 
-struct order_context *initialize_empty_orders() {
-    int counter = 0;
-    static struct order_context equipments[MAX_EQUIPMENTS_SIZE] = {};
-    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
-        equipments[counter].equipment_id = NOT_FOUND;
-        equipments[counter].sensor_id = NOT_FOUND;
-    }
-    return equipments;
-}
-
 int get_equipments_count(struct order_context *equipments) {
     int count = 0;
     struct order_context *context;
@@ -203,6 +202,10 @@ int get_equipments_count(struct order_context *equipments) {
         count = count + 1;
     }
     return count;
+}
+
+int get_next_id() {
+    return NEXT_ID;
 }
 
 int *get_sensors_by_equipment(struct order_context *equipments, int equipment_id) {
@@ -530,11 +533,38 @@ enum Boolean did_communication_fail(int client_socket) {
     return client_socket < FALSE;
 }
 
+
+enum Boolean insert_new_equipment(char *ip, int next_id) {
+    int counter = 0;
+    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
+        if (clients[counter].id == 0) {
+            clients[counter].id = next_id;
+            clients[counter].ip = ip;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+void handle_add_new_equipment(char *ip, int client_socket) {
+    int next_id = get_next_id();
+    enum Boolean is_success_inserted = insert_new_equipment(ip, next_id);
+    char response[BUFFER_SIZE_IN_BYTES] = {};
+    if (is_success_inserted) {
+        NEXT_ID++;
+        sprintf(response, "New ID: %d\n", next_id);
+    } else {
+        sprintf(response, "Equipments size exceeded!\n");
+    }
+    send(client_socket, response, strlen(response) + 1, 0);
+    close(client_socket);
+}
+
 int get_command_type(char buffer[]) {
     char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
     strcpy(buffer_copy, buffer);
-    printf("Buffer: %s", buffer_copy);
+    printf("Buffer: %s\n", buffer_copy);
     strtok(buffer_copy, " ");
-    printf("Command found 1: %s\n", buffer_copy);
+    printf("Command found: %s\n", buffer_copy);
     return atoi(buffer_copy);
 }
