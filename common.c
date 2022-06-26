@@ -13,7 +13,7 @@ static const char *READ = "read";
 static const char *REMOVE = "remove";
 
 enum Constants {
-    BUFFER_SIZE_IN_BYTES = 512,
+    BUFFER_SIZE_IN_BYTES = 100,
     SERVER_LISTENING_SIZE = 10,
     MAX_EQUIPMENTS_SIZE = 15
 };
@@ -25,6 +25,17 @@ enum Boolean {
 
 enum Equipments {
     NOT_FOUND = -1
+};
+
+enum MessageType {
+    ADD_EQUIPMENT_REQUEST = 1,
+    REMOVE_EQUIPMENT_REQUEST = 2,
+    ADD_EQUIPMENT_RESPONSE = 3,
+    LIST_EQUIPMENTS_REQUEST = 4,
+    GET_EQUIPMENT_INFORMATION_REQUEST = 5,
+    GET_EQUIPMENT_INFORMATION_RESPONSE = 6,
+    OK_RESPONSE = 7,
+    ERROR_RESPONSE = 8
 };
 
 static int SERVER_EQUIPMENTS_COUNT = 0;
@@ -515,6 +526,15 @@ void handle_invalid_sensors_message(struct sockaddr *client_socket_address, int 
     close(client_socket);
 }
 
-enum Boolean did_communication_fail(int client_socket){
+enum Boolean did_communication_fail(int client_socket) {
     return client_socket < FALSE;
+}
+
+int get_command_type(char buffer[]) {
+    char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
+    strcpy(buffer_copy, buffer);
+    printf("Buffer: %s", buffer_copy);
+    strtok(buffer_copy, " ");
+    printf("Command found 1: %s\n", buffer_copy);
+    return atoi(buffer_copy);
 }

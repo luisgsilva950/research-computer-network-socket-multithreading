@@ -19,7 +19,9 @@ void *start_client_thread(void *data) {
     printf("Message received from %s: %d bytes: %s", client_socket_ip, (int) count, buffer);
     char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
     strcpy(buffer_copy, buffer);
-    const char *response = "Default response\n";
+    int command = get_command_type(buffer_copy);
+    char response[BUFFER_SIZE_IN_BYTES] = {};
+    sprintf(response, "Command is %d\n", command);
     send(th_data->client_socket, response, strlen(response) + 1, 0);
     close(th_data->client_socket);
     pthread_exit(0);
@@ -37,7 +39,7 @@ int main(int argc, char *argv[]) {
         if (!th_data) error("Error instantiating thread data.");
         int client_socket_address_len = sizeof(*client_socket_address);
         int client_socket = accept(_socket, client_socket_address, (socklen_t *) &client_socket_address_len);
-        if (client_socket < FALSE) error("Error with client socket communication...");
+        if (did_communication_fail(client_socket)) error("Error with client socket communication...");
         th_data->client_socket = client_socket;
         memcpy(&(th_data->client_socket_address), &client_socket_address, sizeof(*client_socket_address));
         pthread_create(&thread_id, NULL, start_client_thread, th_data);

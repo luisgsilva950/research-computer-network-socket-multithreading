@@ -1,4 +1,17 @@
 /Applications/CLion.app/Contents/bin/cmake/mac/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/Applications/CLion.app/Contents/bin/ninja/mac/ninja -G Ninja -S /Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading -B /Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading/cmake-build-debug
--- Configuring done
--- Generating done
--- Build files have been written to: /Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading/cmake-build-debug
+CMake Error at CMakeLists.txt:1 (cmake_language):
+  cmake_language called with unknown meta-operation
+
+
+CMake Warning (dev) in CMakeLists.txt:
+  No cmake_minimum_required command is present.  A line of code such as
+
+    cmake_minimum_required(VERSION 3.22)
+
+  should be added at the top of the file.  The version specified may be lower
+  if you wish to support older CMake versions for this project.  For more
+  information run "cmake --help-policy CMP0000".
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Configuring incomplete, errors occurred!
+See also "/Users/luisdomingues/Documents/redesdecomputadores/research-computer-network-socket-multithreading/cmake-build-debug/CMakeFiles/CMakeOutput.log".
