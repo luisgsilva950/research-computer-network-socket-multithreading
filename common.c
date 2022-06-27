@@ -354,9 +354,11 @@ void handle_list_equipments(int id, int client_socket) {
     print_int_values(equipment_ids);
     for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
         if (equipment_ids[counter] == 0 || equipment_ids[counter] > MAX_EQUIPMENTS_SIZE) break;
-        char aux[12] = {};
-        sprintf(aux, "%s ", get_number_as_string(equipment_ids[counter]));
-        strcat(message, aux);
+        if (equipment_ids[counter] != id) {
+            char aux[12] = {};
+            sprintf(aux, "%s ", get_number_as_string(equipment_ids[counter]));
+            strcat(message, aux);
+        }
     }
     strcat(message, "\n");
     printf("Listing equipments: %s", message);
