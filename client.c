@@ -30,10 +30,11 @@ int main(int argc, char *argv[]) {
     struct socket_context context = initialize_client_socket(argv[1], argv[2]);
     char *ip = inet_ntoa(((struct sockaddr_in *) &context.socket_address)->sin_addr);
     int _socket = context.socket;
-    char r_copy[BUFFER_SIZE_IN_BYTES] = {};
+    char add_response_copy[BUFFER_SIZE_IN_BYTES] = {};
     char *inserted_id_response = send_message(_socket, "01\n");
-    strcpy(r_copy, inserted_id_response);
-    MY_ID = get_inserted_id(r_copy);
+    strcpy(add_response_copy, inserted_id_response);
+    MY_ID = get_string_as_integer(get_sequence_word_in_buffer(add_response_copy, 2));
+    printf("New ID: %s\n", get_number_as_string(MY_ID));
     while (1) {
         context = initialize_client_socket(argv[1], argv[2]);
         _socket = context.socket;
@@ -44,25 +45,28 @@ int main(int argc, char *argv[]) {
         if (strlen(message) > 0) {
             if (is_equal(message, "close connection\n")) {
                 printf("Will close client connection with: %s\n", ip);
-                sprintf(mapped_message, "02 %s\n", get_number_as_string(MY_ID));
+                sprintf(mapped_message, "%s %s\n", get_number_as_string(REMOVE_EQUIPMENT_REQUEST),
+                        get_number_as_string(MY_ID));
                 send_message(_socket, mapped_message);
+                printf("Successful removal");
 //                struct socket_context broadcast_context = initialize_broadcast_socket(argv[2]);
 //                send_message(broadcast_context.socket, );
 
             } else if (is_equal(message, "list equipment\n")) {
                 printf("Will list equipments connected on server: %s\n", ip);
-                sprintf(mapped_message, "04\n");
+                sprintf(mapped_message, "%s\n", get_number_as_string(LIST_EQUIPMENTS_REQUEST));
                 send_message(_socket, mapped_message);
 //                struct socket_context broadcast_context = initialize_broadcast_socket(argv[2]);
 //                send_message(broadcast_context.socket, );
 
             } else if (is_equal(get_first_word(message), "request")) {
-                int id = get_id_from_list_information_client_message(message);
+                int id = get_string_as_integer(get_sequence_word_in_buffer(message, 4));
                 printf("Will list information from: %s\n", get_number_as_string(id));
-                sprintf(mapped_message, "05 %s %s\n", get_number_as_string(MY_ID), get_number_as_string(id));
+                sprintf(mapped_message, "%s %s %s\n", get_number_as_string(GET_EQUIPMENT_INFORMATION_REQUEST),
+                        get_number_as_string(MY_ID), get_number_as_string(id));
                 char *read_response = send_message(_socket, mapped_message);
-                int target_id = atoi(get_sequence_word_in_buffer(read_response, 3));
-                float read_value = atof(get_sequence_word_in_buffer(read_response, 4));
+                int target_id = get_string_as_integer(get_sequence_word_in_buffer(read_response, 3));
+                float read_value = get_string_as_float(get_sequence_word_in_buffer(read_response, 4));
                 printf("Value from %s: %.2f\n", get_number_as_string(target_id), read_value);
             } else {
                 send_message(_socket, message);
