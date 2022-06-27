@@ -1,6 +1,6 @@
 CFLAGS = -Wall -g
 all:
-	gcc $(CFLAGS) client.c -o client
+	gcc $(CFLAGS) equipment.c -o equipment
 	gcc $(CFLAGS) server.c -o server
 test:
 	echo "Testing suite. I need to create a testing suite."
