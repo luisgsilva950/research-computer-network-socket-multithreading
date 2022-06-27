@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <strings.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "common.c"
 
 
@@ -35,6 +36,27 @@ char *get_error_message_from_code(char *code) {
     return "Equipment not found\n";
 }
 
+struct client_thread_data {
+    int socket;
+    struct sockaddr socket_address;
+};
+
+void *client_server(void *data) {
+    const struct client_thread_data *th_data = ((struct client_thread_data *) data);
+    char buffer[BUFFER_SIZE_IN_BYTES] = {};
+    memset(buffer, 0, BUFFER_SIZE_IN_BYTES);
+    while (1) {
+        size_t count = recv(th_data->socket, buffer, BUFFER_SIZE_IN_BYTES - 1, 0);
+        if (count != 0) {
+            printf("Client server working.\n");
+            printf("Message received: %d bytes: %s\n", (int) count, buffer);
+            char buffer_copy[BUFFER_SIZE_IN_BYTES] = {};
+            strcpy(buffer_copy, buffer);
+        }
+    }
+    pthread_exit(0);
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 3) print_client_usage_pattern();
     char message[BUFFER_SIZE_IN_BYTES];
@@ -51,6 +73,12 @@ int main(int argc, char *argv[]) {
     } else {
         printf("%s", get_sequence_word_in_buffer(add_response_copy, 3));
     }
+    struct client_thread_data *thread_data = malloc(sizeof(*thread_data));
+    context = initialize_client_socket(argv[1], argv[2]);
+    thread_data->socket = context.socket;
+    thread_data->socket_address = context.socket_address;
+    pthread_t thread_id;
+    pthread_create(&thread_id, NULL, client_server, thread_data);
     while (1) {
         context = initialize_client_socket(argv[1], argv[2]);
         _socket = context.socket;
@@ -66,16 +94,10 @@ int main(int argc, char *argv[]) {
                 send_message(_socket, mapped_message);
                 printf("Successful removal");
                 exit(0);
-//                struct socket_context broadcast_context = initialize_broadcast_socket(argv[2]);
-//                send_message(broadcast_context.socket, );
-
             } else if (is_equal(message, "list equipment\n")) {
                 printf("Will list equipments connected on server: %s\n", ip);
                 sprintf(mapped_message, "%s\n", get_number_as_string(LIST_EQUIPMENTS_REQUEST));
                 send_message(_socket, mapped_message);
-//                struct socket_context broadcast_context = initialize_broadcast_socket(argv[2]);
-//                send_message(broadcast_context.socket, );
-
             } else if (is_equal(get_first_word(message), "request")) {
                 int id = get_string_as_integer(get_sequence_word_in_buffer(message, 4));
                 printf("Will list information from: %s\n", get_number_as_string(id));

@@ -314,6 +314,18 @@ enum Boolean is_equipment_present(int id) {
     return is_present;
 }
 
+void send_message_to_broadcast(char *message, enum Boolean use_broadcast_ip) {
+    int i;
+    // Necessary approach because using broadcast ip I got a permission error
+    for (i = 0; i < MAX_EQUIPMENTS_SIZE; i++) {
+        if (clients[i].id != 0) {
+            printf("Sending message to broadcast...\n");
+            const int count = send(clients[i].socket, message, strlen(message) + 1, 0);
+            if (count != strlen(message) + 1) error("Error sending message");
+        }
+    }
+}
+
 void handle_request_information(int id, int target_id, int client_socket) {
     char message[BUFFER_SIZE_IN_BYTES] = "";
     if (!is_equipment_present(id)) {
@@ -341,7 +353,7 @@ void handle_list_equipments(int id, int client_socket) {
     int *equipment_ids = get_equipments_excluding_current(id);
     print_int_values(equipment_ids);
     for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
-        if (equipment_ids[counter] == 0) break;
+        if (equipment_ids[counter] == 0 || equipment_ids[counter] > MAX_EQUIPMENTS_SIZE) break;
         char aux[12] = {};
         sprintf(aux, "%s ", get_number_as_string(equipment_ids[counter]));
         strcat(message, aux);
@@ -358,7 +370,10 @@ void handle_add_new_equipment(char *ip, int client_socket) {
     char response[BUFFER_SIZE_IN_BYTES] = {};
     if (is_success_inserted) {
         NEXT_ID++;
-        printf("Equipment %s added\n", get_number_as_string(next_id));
+        char *aux = malloc(BUFFER_SIZE_IN_BYTES);
+        sprintf(aux, "Equipment %s added\n", get_number_as_string(next_id));
+        printf("%s", aux);
+        send_message_to_broadcast(aux, FALSE);
         sprintf(response, "%s %s\n", get_number_as_string(ADD_EQUIPMENT_RESPONSE), get_number_as_string(next_id));
     } else {
         sprintf(response, "Equipment limit exceeded\n");
@@ -370,7 +385,10 @@ void handle_add_new_equipment(char *ip, int client_socket) {
 void handle_remove_equipment(int id, int client_socket) {
     remove_equipment(id);
     char response[BUFFER_SIZE_IN_BYTES] = {};
-    printf("Equipment %s removed", get_number_as_string(id));
+    char *aux = malloc(BUFFER_SIZE_IN_BYTES);
+    sprintf(aux, "Equipment %s removed\n", get_number_as_string(id));
+    printf("%s", aux);
+    send_message_to_broadcast(aux, FALSE);
     sprintf(response, "%s %s 01\n", get_number_as_string(REMOVE_EQUIPMENT_RESPONSE), get_number_as_string(id));
     send(client_socket, response, strlen(response) + 1, 0);
     close(client_socket);

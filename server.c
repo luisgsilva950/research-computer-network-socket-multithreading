@@ -29,12 +29,12 @@ void *start_client_thread(void *data) {
             handle_remove_equipment(equipment_id, th_data->client_socket);
         }
         if (command == LIST_EQUIPMENTS_REQUEST) {
-            int id = get_id_from_socket(th_data->client_socket);
+            int id = get_id_from_socket(th_data->client_socket - 1);
             printf("Id from equipment request: %s\n", get_number_as_string(id));
             handle_list_equipments(id, th_data->client_socket);
         }
         if (command == GET_EQUIPMENT_INFORMATION_REQUEST) {
-            int id = get_id_from_socket(th_data->client_socket);
+            int id = get_id_from_socket(th_data->client_socket - 1);
             int target_id = get_string_as_integer(get_sequence_word_in_buffer(buffer_copy, 3));
             handle_request_information(id, target_id, th_data->client_socket);
         } else {
