@@ -48,8 +48,8 @@ void *start_client_thread(void *data) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) print_server_usage_pattern();
-    struct socket_context context = initialize_server_socket(argv[1], argv[2]);
+    if (argc < 2) print_server_usage_pattern();
+    struct socket_context context = initialize_server_socket("v4", argv[1]);
     int _socket = context.socket;
     while (1) {
         struct sockaddr_storage client_socket_storage;
