@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         if (strlen(message) > 0) {
             if (is_equal(message, "close connection\n")) {
                 printf("Will close client connection with: %s\n", ip);
-                sprintf(mapped_message, "02 %s\n", get_id_as_string(MY_ID));
+                sprintf(mapped_message, "02 %s\n", get_number_as_string(MY_ID));
                 send_message(_socket, mapped_message);
 //                struct socket_context broadcast_context = initialize_broadcast_socket(argv[2]);
 //                send_message(broadcast_context.socket, );
@@ -58,9 +58,12 @@ int main(int argc, char *argv[]) {
 
             } else if (is_equal(get_first_word(message), "request")) {
                 int id = get_id_from_list_information_client_message(message);
-                printf("Will list information from: %s\n", get_id_as_string(id));
-                sprintf(mapped_message, "05 %s %s\n", get_id_as_string(MY_ID), get_id_as_string(id));
-                send_message(_socket, mapped_message);
+                printf("Will list information from: %s\n", get_number_as_string(id));
+                sprintf(mapped_message, "05 %s %s\n", get_number_as_string(MY_ID), get_number_as_string(id));
+                char *read_response = send_message(_socket, mapped_message);
+                int target_id = atoi(get_sequence_word_in_buffer(read_response, 3));
+                float read_value = atof(get_sequence_word_in_buffer(read_response, 4));
+                printf("Value from %s: %.2f\n", get_number_as_string(target_id), read_value);
             } else {
                 send_message(_socket, message);
             }

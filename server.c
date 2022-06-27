@@ -30,7 +30,7 @@ void *start_client_thread(void *data) {
         }
         if (command == LIST_EQUIPMENTS_REQUEST) {
             int id = get_id_from_socket(th_data->client_socket);
-            printf("Id from equipment request: %s\n", get_id_as_string(id));
+            printf("Id from equipment request: %s\n", get_number_as_string(id));
             handle_list_equipments(id, th_data->client_socket);
         }
         if (command == GET_EQUIPMENT_INFORMATION_REQUEST) {

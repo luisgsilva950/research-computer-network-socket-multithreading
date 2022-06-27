@@ -81,7 +81,7 @@ void print_client_usage_pattern() {
     exit(EXIT_FAILURE);
 }
 
-char *get_id_as_string(int id) {
+char *get_number_as_string(int id) {
     char *aux = malloc(8 * (sizeof(char)));
     if (id >= 10) {
         sprintf(aux, "%d", id);
@@ -353,7 +353,7 @@ char *get_remove_success_response(int *sensors_removed, int *sensors_not_present
 }
 
 float generate_random_number() {
-    return (((float) rand() / (float) (RAND_MAX)) * 100);
+    return ((float) rand() / RAND_MAX) * 10;
 }
 
 char *get_read_response(int *installed_sensors, int *not_installed_sensors) {
@@ -437,7 +437,7 @@ void handle_add_new_equipment(char *ip, int client_socket) {
     char response[BUFFER_SIZE_IN_BYTES] = {};
     if (is_success_inserted) {
         NEXT_ID++;
-        sprintf(response, "New ID: %s\n", get_id_as_string(next_id));
+        sprintf(response, "New ID: %s\n", get_number_as_string(next_id));
     } else {
         sprintf(response, "Equipments size exceeded!\n");
     }
@@ -483,7 +483,7 @@ void handle_list_equipments(int id, int client_socket) {
     for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
         if (equipment_ids[counter] == 0) break;
         char aux[12] = {};
-        sprintf(aux, "%s ", get_id_as_string(equipment_ids[counter]));
+        sprintf(aux, "%s ", get_number_as_string(equipment_ids[counter]));
         strcat(message, aux);
     }
     strcat(message, "\n");
@@ -492,14 +492,19 @@ void handle_list_equipments(int id, int client_socket) {
     close(client_socket);
 }
 
-
-char *get_first_word(char buffer[]) {
+char *get_sequence_word_in_buffer(char buffer[], int sequence_number) {
+    int i;
     char *buffer_copy = malloc(BUFFER_SIZE_IN_BYTES);
     strcpy(buffer_copy, buffer);
-    printf("Buffer: %s", buffer_copy);
-    strtok(buffer_copy, " ");
-    printf("First word is: %s\n", buffer_copy);
-    return buffer_copy;
+    char *token = strtok(buffer_copy, " ");
+    for (i = 0; i < (sequence_number - 1); i++) {
+        token = strtok(NULL, " ");
+    }
+    return token;
+}
+
+char *get_first_word(char buffer[]) {
+    return get_sequence_word_in_buffer(buffer, 1);
 }
 
 int get_command_type(char buffer[]) {
@@ -582,8 +587,10 @@ int get_id_from_socket(int socket) {
 void handle_request_information(int id, int target_id, int client_socket) {
     char message[BUFFER_SIZE_IN_BYTES] = "";
     float random_value = generate_random_number();
-    printf("Equipment %s will list information of equipment %s\n", get_id_as_string(id), get_id_as_string(target_id));
-    sprintf(message, "Value from %s: %.2f", get_id_as_string(target_id), random_value);
+    printf("Equipment %s will list information of equipment %s\n", get_number_as_string(id),
+           get_number_as_string(target_id));
+    sprintf(message, "%s %s %s %.2f\n", get_number_as_string(GET_EQUIPMENT_INFORMATION_RESPONSE),
+            get_number_as_string(id), get_number_as_string(target_id), random_value);
     send(client_socket, message, strlen(message) + 1, 0);
     close(client_socket);
 }
