@@ -29,6 +29,13 @@ enum MessageType {
     ERROR_RESPONSE = 7
 };
 
+enum ErrorCode {
+    LIMIT_EXCEEDED = 4,
+    SOURCE_EQUIPMENT_NOT_FOUND = 2,
+    TARGET_EQUIPMENT_NOT_FOUND = 3,
+    EQUIPMENT_NOT_FOUND = 1
+};
+
 static int NEXT_ID = 1;
 
 struct storage_client {
@@ -295,13 +302,35 @@ int get_id_from_socket(int socket) {
     return response;
 }
 
+enum Boolean is_equipment_present(int id) {
+    enum Boolean is_present = FALSE;
+    int counter;
+    for (counter = 0; counter < MAX_EQUIPMENTS_SIZE; counter++) {
+        if (clients[counter].id == id) {
+            is_present = TRUE;
+            break;
+        }
+    }
+    return is_present;
+}
+
 void handle_request_information(int id, int target_id, int client_socket) {
     char message[BUFFER_SIZE_IN_BYTES] = "";
-    float random_value = generate_random_number();
-    printf("Equipment %s will list information of equipment %s\n", get_number_as_string(id),
-           get_number_as_string(target_id));
-    sprintf(message, "%s %s %s %.2f\n", get_number_as_string(GET_EQUIPMENT_INFORMATION_RESPONSE),
-            get_number_as_string(id), get_number_as_string(target_id), random_value);
+    if (!is_equipment_present(id)) {
+        printf("Equipment %s not found\n", get_number_as_string(id));
+        sprintf(message, "%s %s %s\n", get_number_as_string(ERROR_RESPONSE),
+                get_number_as_string(id), get_number_as_string(SOURCE_EQUIPMENT_NOT_FOUND));
+    } else if (!is_equipment_present(target_id)) {
+        printf("Equipment %s not found\n", get_number_as_string(target_id));
+        sprintf(message, "%s %s %s\n", get_number_as_string(ERROR_RESPONSE),
+                get_number_as_string(id), get_number_as_string(TARGET_EQUIPMENT_NOT_FOUND));
+    } else {
+        float random_value = generate_random_number();
+        printf("Equipment %s will list information of equipment %s\n", get_number_as_string(id),
+               get_number_as_string(target_id));
+        sprintf(message, "%s %s %s %.2f\n", get_number_as_string(GET_EQUIPMENT_INFORMATION_RESPONSE),
+                get_number_as_string(id), get_number_as_string(target_id), random_value);
+    }
     send(client_socket, message, strlen(message) + 1, 0);
     close(client_socket);
 }
